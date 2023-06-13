@@ -1,0 +1,200 @@
+// #include "esp_camera.h"
+// #include "RTOS.h"
+// #include <time.h>
+// #include <Wire.h>
+// #include <Adafruit_NeoPixel.h>
+// #include "esp_http_client.h"
+// #include <ArduinoJson.h>
+// #include <lvgl.h>
+// #include "lv_page_common.h"
+// #include <BleKeyboard.h>
+// #include "config.h"
+// #include "mqtt.h"
+// #include "arduinoFFT.h"
+
+
+// /*********************需要修改的地方**********************/
+// const char*  uid = "52160dd34d0b4f7be1ccb551b77c63ac";    //用户私钥，巴法云控制台获取
+// const char*  topic = "mypic";     //主题名字，可在控制台新建
+// const char*  wechatMsg = NULL;          //如果不为空，会推送到微信，可随意修改，修改为自己需要发送的消息
+// const char*  wecomMsg = NULL;         //如果不为空，会推送到企业微信，推送到企业微信的消息，可随意修改，修改为自己需要发送的消息
+// const char*  urlPath = NULL;          //如果不为空，会生成自定义图片链接，自定义图片上传后返回的图片url，url前一部分为巴法云域名，第二部分：私钥+主题名的md5值，第三部分为设置的图片链接值。
+// /********************************************************/
+// const char*  post_url = "http://images.bemfa.com/upload/v1/upimages.php"; // 默认上传地址
+// static String httpResponseString;  //接收服务器返回信息
+// bool internet_connected = false;
+
+// unsigned char button_state;
+
+
+// void GUI_Task();
+// void UART_Task();
+// void Camera_Task();
+// void Light_Task();
+// void Mqtt_Task();
+
+// extern lv_obj_t *home_scr;
+
+// esp_err_t take_send_photo();
+// esp_err_t _http_event_handler(esp_http_client_event_t *evt);
+
+// extern PubSubClient mqttClient;
+
+// bool flag = true, gui_flag = true;
+
+// void setup()
+// {
+//   all_init();
+//   mqtt_init();
+
+//   lv_app_load_home_scr();
+// }
+
+// /********http请求处理函数*********/
+// esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+// {
+//   if (evt->event_id == HTTP_EVENT_ON_DATA)
+//   {
+//     httpResponseString.concat((char *)evt->data);
+//   }
+//   return ESP_OK;
+// }
+// /********推送图片*********/
+// esp_err_t take_send_photo()
+// {
+//   Serial.println("Taking picture...");
+//   esp_err_t res = ESP_OK;
+
+//   camera_fb_t * fb = esp_camera_fb_get();
+//   if (!fb) {
+//     Serial.println("Camera capture failed");
+//     return ESP_FAIL;
+//   }
+
+//   httpResponseString = "";
+//   esp_http_client_handle_t http_client;
+//   esp_http_client_config_t config_client = {0};
+//   config_client.url = post_url;
+//   config_client.event_handler = _http_event_handler;
+//   config_client.method = HTTP_METHOD_POST;
+//   http_client = esp_http_client_init(&config_client);
+//   esp_http_client_set_post_field(http_client, (const char *)fb->buf, fb->len);//设置http发送的内容和长度
+//   esp_http_client_set_header(http_client, "Content-Type", "image/jpg"); //设置http头部字段
+//   esp_http_client_set_header(http_client, "Authorization", uid);        //设置http头部字段
+//   esp_http_client_set_header(http_client, "Authtopic", topic);          //设置http头部字段
+//   esp_http_client_set_header(http_client, "wechatmsg", wechatMsg);      //设置http头部字段
+//   esp_http_client_set_header(http_client, "wecommsg", wecomMsg);        //设置http头部字段
+//   esp_http_client_set_header(http_client, "picpath", urlPath);          //设置http头部字段
+//   esp_err_t err = esp_http_client_perform(http_client);//发送http请求
+//   if (err == ESP_OK) {
+//     Serial.println(httpResponseString);//打印获取的URL
+//     //json数据解析
+//     StaticJsonDocument<200> doc;
+//     DeserializationError error = deserializeJson(doc, httpResponseString);
+//     if (error) {
+//       Serial.print(F("deserializeJson() failed: "));
+//       Serial.println(error.c_str());
+//     }
+//     String url = doc["url"];
+//     Serial.println(url);//打印获取的URL
+//   }
+//   esp_http_client_cleanup(http_client);
+//   esp_camera_fb_return(fb);
+//   return res;
+// }
+
+// void GUI_Task()
+// {
+//     lv_timer_handler(); /* let the GUI do its work */
+// }
+
+// void Camera_Task()
+// {
+//     camera_show();
+//     if (button_state == 5) { // Take picture
+//       take_send_photo();
+//       button_state = 0;
+//     }
+// }
+
+// void Mqtt_Task()
+// {
+//     if (mqttClient.connected()) { // 如果开发板成功连接服务器    
+//       // 保持心跳
+//       mqttClient.loop();
+//     } else {                  // 如果开发板未能成功连接服务器
+//       connectMQTTServer();    // 则尝试连接服务器
+//     }
+// }
+
+// void Light_Task(){
+//   rainbow(10);
+// }
+
+// void UART_Task()
+// {
+//   String uart_rev; // 接收字符串命令
+
+//     if (Serial.available())
+//     {
+//       uart_rev = Serial.readString();
+//       Serial.print("rev=");
+//       Serial.println(uart_rev);
+
+//       if (uart_rev.toInt() == 1)
+//       {
+//         flag = false; 
+//       }
+//       else if (uart_rev.toInt() == 2)
+//       {
+//         flag = true;
+//       }
+
+//       if (uart_rev.compareTo("RIGHT") == 0)
+//       {
+//         button_state = 1;
+//       }
+//       else if (uart_rev.compareTo("LEFT") == 0)
+//       {
+//         button_state = 2;
+//       }
+//       else if (uart_rev.compareTo("ENTER") == 0)
+//       {
+//         button_state = 3;
+//       }
+//       else if (uart_rev.compareTo("EXIT") == 0)
+//       {
+//         button_state = 4;
+//       }
+//       else if (uart_rev.compareTo("TAKEPIC") == 0)
+//       {
+//         button_state = 5;
+//       }
+//       else
+//       {
+//         button_state = 0;
+//       }
+//       Serial.println(button_state);
+//     }
+// }
+
+
+// void loop()
+// {
+//   UART_Task();
+  
+//   Mqtt_Task();
+
+//   if(flag){
+//     if(!gui_flag){
+//       lv_app_load_home_scr();
+//       gui_flag = true;
+//     }
+//     GUI_Task();
+//   }else{
+//     gui_flag = false;
+//     Camera_Task();
+//   }
+
+//   Light_Task();
+// }
